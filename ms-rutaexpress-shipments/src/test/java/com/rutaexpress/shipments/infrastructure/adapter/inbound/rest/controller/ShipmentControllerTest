@@ -1,0 +1,59 @@
+package com.rutaexpress.shipments.infrastructure.adapter.inbound.rest.controller;
+
+import com.rutaexpress.shipments.application.port.in.ManageShipmentUseCase;
+import com.rutaexpress.shipments.domain.model.Shipment;
+import com.rutaexpress.shipments.domain.model.ShipmentStatus;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(ShipmentController.class)
+class ShipmentControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
+    private ManageShipmentUseCase manageShipmentUseCase;
+
+    @Test
+    void shouldCreateShipmentAndReturn201() throws Exception {
+        Shipment savedShipment = new Shipment();
+        savedShipment.setId(1L);
+        savedShipment.setTrackingNumber("TRK123");
+        savedShipment.setStatus(ShipmentStatus.CREADO);
+
+        when(manageShipmentUseCase.createShipment(any(Shipment.class))).thenReturn(savedShipment);
+
+        mockMvc.perform(post("/api/v1/shipments")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"trackingNumber\": \"TRK123\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.trackingNumber").value("TRK123"))
+                .andExpect(jsonPath("$.status").value("CREADO"));
+    }
+
+    @Test
+    void shouldUpdateStatusAndReturn200() throws Exception {
+        Shipment updatedShipment = new Shipment();
+        updatedShipment.setId(1L);
+        updatedShipment.setStatus(ShipmentStatus.ACEPTADO);
+
+        when(manageShipmentUseCase.changeStatus(eq(1L), eq(ShipmentStatus.ACEPTADO))).thenReturn(updatedShipment);
+
+        mockMvc.perform(patch("/api/v1/shipments/1/status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\": \"ACEPTADO\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACEPTADO"));
+    }
+}

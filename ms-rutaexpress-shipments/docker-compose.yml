@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  ms-shipments-oracle:
+    image: gvenzl/oracle-free:23-slim-faststart
+    container_name: ms-shipments-oracle
+    ports:
+      - "1522:1521"
+    environment:
+      ORACLE_PASSWORD: ${DB_SYS_PASSWORD:-oracle}
+      APP_USER: ${DB_USER:-shipments_user}
+      APP_USER_PASSWORD: ${DB_PASSWORD:-shipments_pass}
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ms-shipments-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ms-shipments-app
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@ms-shipments-oracle:1521/FREEPDB1
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-shipments_user}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-shipments_pass}
+    depends_on:
+      ms-shipments-oracle:
+        condition: service_healthy
+
+volumes:
+  oracle_data:

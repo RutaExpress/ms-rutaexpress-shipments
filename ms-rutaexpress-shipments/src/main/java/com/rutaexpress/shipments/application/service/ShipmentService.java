@@ -1,37 +1,39 @@
 package com.rutaexpress.shipments.application.service;
 
+import com.rutaexpress.shipments.application.port.in.ManageShipmentUseCase;
+import com.rutaexpress.shipments.application.port.out.ShipmentRepositoryPort;
 import com.rutaexpress.shipments.domain.exception.ShipmentNotFoundException;
 import com.rutaexpress.shipments.domain.model.Shipment;
 import com.rutaexpress.shipments.domain.model.ShipmentStatus;
-import com.rutaexpress.shipments.domain.port.inbound.ShipmentUseCase;
-import com.rutaexpress.shipments.domain.port.outbound.ShipmentRepositoryPort;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
-public class ShipmentService implements ShipmentUseCase {
+@RequiredArgsConstructor
+public class ShipmentService implements ManageShipmentUseCase {
 
-    private final ShipmentRepositoryPort shipmentRepositoryPort;
-
-    public ShipmentService(ShipmentRepositoryPort shipmentRepositoryPort) {
-        this.shipmentRepositoryPort = shipmentRepositoryPort;
-    }
+    private final ShipmentRepositoryPort repositoryPort;
 
     @Override
     public Shipment createShipment(Shipment shipment) {
         shipment.setStatus(ShipmentStatus.CREADO);
-        return shipmentRepositoryPort.save(shipment);
+        return repositoryPort.save(shipment);
     }
 
     @Override
-    public Shipment getShipmentById(Long id) {
-        return shipmentRepositoryPort.findById(id)
+    public Shipment changeStatus(Long id, ShipmentStatus newStatus) {
+        Shipment shipment = repositoryPort.findById(id)
                 .orElseThrow(() -> new ShipmentNotFoundException(id));
+        
+        // Aquí se ejecuta la validación de la regla de negocio
+        shipment.changeStatus(newStatus);
+        
+        return repositoryPort.save(shipment);
     }
 
     @Override
-    public Shipment updateShipmentStatus(Long id, ShipmentStatus newStatus) {
-        Shipment shipment = getShipmentById(id);
-        shipment.changeStatus(newStatus); // Ejecuta la validación de dominio
-        return shipmentRepositoryPort.save(shipment);
+    public Shipment getShipment(Long id) {
+        return repositoryPort.findById(id)
+                .orElseThrow(() -> new ShipmentNotFoundException(id));
     }
 }

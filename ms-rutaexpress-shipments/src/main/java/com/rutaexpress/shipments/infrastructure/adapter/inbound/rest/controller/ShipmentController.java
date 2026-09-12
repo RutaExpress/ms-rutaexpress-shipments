@@ -1,49 +1,40 @@
 package com.rutaexpress.shipments.infrastructure.adapter.inbound.rest.controller;
 
+import com.rutaexpress.shipments.application.port.in.ManageShipmentUseCase;
 import com.rutaexpress.shipments.domain.model.Shipment;
-import com.rutaexpress.shipments.domain.port.inbound.ShipmentUseCase;
-import com.rutaexpress.shipments.infrastructure.adapter.inbound.rest.dto.CreateShipmentRequest;
-import com.rutaexpress.shipments.infrastructure.adapter.inbound.rest.dto.UpdateStatusRequest;
-import jakarta.validation.Valid;
+import com.rutaexpress.shipments.infrastructure.adapter.inbound.rest.dto.ShipmentCreateRequest;
+import com.rutaexpress.shipments.infrastructure.adapter.inbound.rest.dto.ShipmentResponse;
+import com.rutaexpress.shipments.infrastructure.adapter.inbound.rest.dto.ShipmentStatusUpdateRequest;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/shipments")
+@RequestMapping("/api/v1/shipments")
+@RequiredArgsConstructor
 public class ShipmentController {
 
-    private final ShipmentUseCase shipmentUseCase;
-
-    public ShipmentController(ShipmentUseCase shipmentUseCase) {
-        this.shipmentUseCase = shipmentUseCase;
-    }
+    private final ManageShipmentUseCase manageShipmentUseCase;
 
     @PostMapping
-    public ResponseEntity<Shipment> createShipment(@Valid @RequestBody CreateShipmentRequest request) {
-        Shipment shipment = new Shipment(
-                null,
-                request.getTrackingNumber(),
-                request.getOriginAddress(),
-                request.getDestinationAddress(),
-                request.getCustomerId(),
-                null
-        );
-        Shipment created = shipmentUseCase.createShipment(shipment);
-        return new ResponseEntity<>(created, HttpStatus.CREATED);
+    @ResponseStatus(HttpStatus.CREATED)
+    public ShipmentResponse createShipment(@RequestBody ShipmentCreateRequest request) {
+        Shipment shipment = new Shipment();
+        shipment.setTrackingNumber(request.trackingNumber());
+        
+        Shipment created = manageShipmentUseCase.createShipment(shipment);
+        return new ShipmentResponse(created.getId(), created.getTrackingNumber(), created.getStatus());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Shipment> getShipmentById(@PathVariable Long id) {
-        Shipment shipment = shipmentUseCase.getShipmentById(id);
-        return ResponseEntity.ok(shipment);
+    public ShipmentResponse getShipment(@PathVariable Long id) {
+        Shipment shipment = manageShipmentUseCase.getShipment(id);
+        return new ShipmentResponse(shipment.getId(), shipment.getTrackingNumber(), shipment.getStatus());
     }
 
-    @PutMapping("/{id}/status")
-    public ResponseEntity<Shipment> updateStatus(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateStatusRequest request) {
-        Shipment updated = shipmentUseCase.updateShipmentStatus(id, request.getStatus());
-        return ResponseEntity.ok(updated);
+    @PatchMapping("/{id}/status")
+    public ShipmentResponse updateStatus(@PathVariable Long id, @RequestBody ShipmentStatusUpdateRequest request) {
+        Shipment updated = manageShipmentUseCase.changeStatus(id, request.status());
+        return new ShipmentResponse(updated.getId(), updated.getTrackingNumber(), updated.getStatus());
     }
 }
