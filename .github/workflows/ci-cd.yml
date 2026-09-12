@@ -10,6 +10,9 @@ jobs:
   build-and-test:
     name: Build & Test Application
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./ms-rutaexpress-shipments
 
     steps:
       - name: Checkout Code
@@ -23,15 +26,18 @@ jobs:
           cache: maven
 
       - name: Build with Maven
-        run: ./mvnw clean package -DskipTests=false
+        run: mvn clean package -DskipTests
 
-      - name: Run Unit & Domain Tests
-        run: ./mvnw test
+      - name: Run Tests
+        run: mvn test
 
   docker-build:
     name: Build Docker Image
     needs: build-and-test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./ms-rutaexpress-shipments
 
     steps:
       - name: Checkout Code
