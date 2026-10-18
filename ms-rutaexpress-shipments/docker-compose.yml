@@ -1,5 +1,4 @@
-version: '3.8'
-
+# Oracle local para desarrollo. Lee las variables del archivo .env (no se sube a GitHub)
 services:
   ms-shipments-oracle:
     image: gvenzl/oracle-free:23-slim-faststart
@@ -7,28 +6,31 @@ services:
     ports:
       - "1522:1521"
     environment:
-      ORACLE_PASSWORD: ${DB_SYS_PASSWORD:-oracle}
-      APP_USER: ${DB_USER:-shipments_user}
-      APP_USER_PASSWORD: ${DB_PASSWORD:-shipments_pass}
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-AdminPass2026!}
+      ORACLE_DATABASE: ${ORACLE_DATABASE:-ORCLPDB1}        # crea la PDB ORCLPDB1
+      APP_USER: ${APP_USER:-SHIPMENTS_USER}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:-ShipmentsPass2026!}
     volumes:
       - oracle_data:/opt/oracle/oradata
     healthcheck:
       test: ["CMD", "healthcheck.sh"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 20
 
   ms-shipments-app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: ms-shipments-app
+    profiles: ["app"]   # solo se levanta con: docker compose --profile app up
     ports:
       - "8081:8081"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@ms-shipments-oracle:1521/FREEPDB1
-      SPRING_DATASOURCE_USERNAME: ${DB_USER:-shipments_user}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-shipments_pass}
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@ms-shipments-oracle:1521/${ORACLE_DATABASE:-ORCLPDB1}
+      SPRING_DATASOURCE_USERNAME: ${APP_USER:-SHIPMENTS_USER}
+      SPRING_DATASOURCE_PASSWORD: ${APP_USER_PASSWORD:-ShipmentsPass2026!}
+      RABBITMQ_HOST: host.docker.internal
     depends_on:
       ms-shipments-oracle:
         condition: service_healthy
