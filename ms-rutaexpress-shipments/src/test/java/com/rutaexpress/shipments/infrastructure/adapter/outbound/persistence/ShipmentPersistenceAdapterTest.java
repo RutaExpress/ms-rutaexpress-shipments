@@ -1,6 +1,7 @@
 package com.rutaexpress.shipments.infrastructure.adapter.outbound.persistence;
 
 import com.rutaexpress.shipments.domain.model.Shipment;
+import com.rutaexpress.shipments.domain.model.ShipmentSearchCriteria;
 import com.rutaexpress.shipments.domain.model.ShipmentStatus;
 import com.rutaexpress.shipments.infrastructure.adapter.outbound.persistence.entity.ShipmentJpaEntity;
 import com.rutaexpress.shipments.infrastructure.adapter.outbound.persistence.repository.SpringDataShipmentRepository;
@@ -10,7 +11,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Optional;
+import java.time.LocalDate;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -26,36 +28,30 @@ class ShipmentPersistenceAdapterTest {
     private ShipmentPersistenceAdapter adapter;
 
     @Test
-    void shouldSaveShipmentSuccessfully() {
-        Shipment domainShipment = new Shipment();
-        domainShipment.setTrackingNumber("TRK-123");
-        domainShipment.setStatus(ShipmentStatus.CREADO);
+    void savePersistsAllFields() {
+        Shipment s = Shipment.create("SRV-1", "Origen", "Destino", "Juan", "juan@correo.cl", "user-1");
+        when(repository.save(any(ShipmentJpaEntity.class))).thenAnswer(inv -> {
+            ShipmentJpaEntity e = inv.getArgument(0);
+            e.setId(10L);
+            return e;
+        });
 
-        ShipmentJpaEntity savedEntity = new ShipmentJpaEntity();
-        savedEntity.setId(1L);
-        savedEntity.setTrackingNumber("TRK-123");
-        savedEntity.setStatus(ShipmentStatus.CREADO);
+        Shipment saved = adapter.save(s);
 
-        when(repository.save(any(ShipmentJpaEntity.class))).thenReturn(savedEntity);
-
-        Shipment result = adapter.save(domainShipment);
-
-        assertNotNull(result.getId());
-        assertEquals("TRK-123", result.getTrackingNumber());
-        verify(repository, times(1)).save(any(ShipmentJpaEntity.class));
+        assertEquals(10L, saved.getId());
+        assertEquals("juan@correo.cl", saved.getRecipientEmail());
+        assertEquals("Destino", saved.getDestinationAddress());
+        assertEquals(ShipmentStatus.CREADO, saved.getStatus());
     }
 
     @Test
-    void shouldFindShipmentById() {
-        ShipmentJpaEntity entity = new ShipmentJpaEntity();
-        entity.setId(1L);
-        entity.setStatus(ShipmentStatus.ACEPTADO);
+    void searchIncludesWholeToDay() {
+        when(repository.search(any(), any(), any())).thenReturn(List.of());
 
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        adapter.search(new ShipmentSearchCriteria(ShipmentStatus.ACEPTADO,
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31)));
 
-        Optional<Shipment> result = adapter.findById(1L);
-
-        assertTrue(result.isPresent());
-        assertEquals(ShipmentStatus.ACEPTADO, result.get().getStatus());
+        verify(repository).search(ShipmentStatus.ACEPTADO,
+                LocalDate.of(2026, 10, 1).atStartOfDay(), LocalDate.of(2026, 11, 1).atStartOfDay());
     }
 }
