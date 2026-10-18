@@ -53,5 +53,7 @@ Si RabbitMQ no está disponible, el envío igual se guarda y el fallo queda en e
 |---|---|
 | `SPRING_DATASOURCE_URL` | `jdbc:oracle:thin:@localhost:1522/ORCLPDB1` |
 | `SPRING_DATASOURCE_USERNAME` / `PASSWORD` | `SHIPMENTS_USER` / (ver `.env`) |
-| `RABBITMQ_HOST` / `PORT` / `USER` / `PASSWORD` | `localhost` / `5672` / `guest` / `guest` |
+| `RABBITMQ_ADDRESSES` | `localhost:5672` (en la nube: los 2 nodos del clúster) |
+| `RABBITMQ_USER` / `RABBITMQ_PASSWORD` | `guest` / `guest` (en la nube: `rx-shipments`) |
+| `RABBITMQ_VHOST` | `/` (en la nube: `rutaexpress`) |
 | `PORT` | `8081` |
