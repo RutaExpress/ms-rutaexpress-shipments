@@ -1,59 +1,42 @@
 # ms-rutaexpress-shipments
 
-Microservicio de **envíos** del caso RutaExpress (DSY1107 Cloud Native I): CRUD de envíos, cambio de estado con reglas de negocio, persistencia en **Oracle** y **productor RabbitMQ** de los comandos que consume `ms-rutaexpress-notify`.
+Microservicio de **envíos** del caso RutaExpress  crear y consultar envíos, cambiar su estado con las reglas del caso, guardar en **Oracle** y publicar en **RabbitMQ** los comandos que consume `ms-rutaexpress-notify`.
+
+> 🚧 **Rama `refactor/ArquitecturaCapas`: refactor en curso.**
+> Esta rama reemplaza la arquitectura hexagonal por **arquitectura en capas** (deuda técnica del proyecto).
+> La versión que funciona completa sigue en **`main`**. Esta rama se une a `main` por pull request cuando el refactor esté terminado y probado.
 
 ## Tecnologías
-Java 21 · Spring Boot 4.1.1 · Spring Data JPA (Oracle) · Spring AMQP (RabbitMQ) · Bean Validation · Lombok
+Java 21 · Spring Boot 4.1.2 · Spring Data JPA (Oracle) · Spring AMQP (RabbitMQ) · Bean Validation · Lombok · JUnit 5 y Mockito
 
-## Estructura (arquitectura hexagonal)
+## Arquitectura en capas
+Una petición baja siempre en el mismo orden: **controller → service → repository → model**.
+
 ```
-ms-rutaexpress-shipments/src/main/java/com/rutaexpress/shipments/
-├── domain/
-│   ├── model/       Shipment (agregado), ShipmentStatus (enum + transiciones), ShipmentSearchCriteria
-│   └── exception/   ShipmentNotFoundException (404), InvalidStatusTransitionException (409)
-├── application/
-│   ├── port/in/     ManageShipmentUseCase
-│   ├── port/out/    ShipmentRepositoryPort, ShipmentNotificationPort
-│   └── service/     ShipmentService  ← decide qué comando publicar según el estado
-└── infrastructure/
-    ├── config/      RabbitMQConfig   ← nombres centralizados + exchanges del productor
-    └── adapter/
-        ├── inbound/rest/   ShipmentController, dto/, exception/GlobalExceptionHandler
-        └── outbound/
-            ├── persistence/  ShipmentPersistenceAdapter, entity/, repository/  (Oracle)
-            └── messaging/    RabbitShipmentNotificationAdapter, dto/  (PRODUCTOR)
+src/main/java/com/rutaexpress/shipments/
+├── controller/   Solo HTTP: recibe el DTO con @Valid, llama al service y responde
+├── service/      Reglas de negocio 
+├── repository/   Interfaces de Spring Data (JpaRepository): solo acceso a datos
+├── model/        Entidad Shipment (@Entity) y enum ShipmentStatus
+├── dto/          Records de entrada y salida, con sus validaciones
+├── exception/    Excepciones de negocio y el manejador global 
+├── messaging/    Productor RabbitMQ y Kafka
+├── config/       Nombres de exchanges y routing keys en un solo lugar
+└── client/       Llamadas REST a otros servicios 
 ```
 
-## Endpoints (`/api/v1/shipments`, puerto 8081)
-| Método | Ruta | Body / parámetros | Respuesta |
-|---|---|---|---|
-| POST | `/` | `serviceId, originAddress, destinationAddress, recipientName, recipientEmail` · header opcional `X-User-Id` | 201 · 400 |
-| GET | `/` | `?status=&from=yyyy-MM-dd&to=yyyy-MM-dd` (opcionales) | 200 |
-| GET | `/{id}` | — | 200 · 404 |
-| PUT | `/{id}/status` | `{ "status": "ACEPTADO" }` | 200 · 400 · 404 · 409 |
 
-## Transiciones y mensajes publicados
-| Desde | Puede pasar a | Publica |
-|---|---|---|
-| CREADO | ACEPTADO, CANCELADO | — |
-| ACEPTADO | EN_BODEGA, EN_RUTA, CANCELADO | **ACEPTADO**: `cmd.topic` `email.aceptado` + `cmd.topic` `warehouse.ticket.create` |
-| EN_BODEGA | EN_RUTA, CANCELADO | **EN_BODEGA**: `cmd.direct` `label.gen` |
-| EN_RUTA | ENTREGADO | **EN_RUTA / ENTREGADO**: `cmd.topic` `email.en_ruta` / `email.entregado` |
-| ENTREGADO, CANCELADO | — (finales) | **CANCELADO**: `email.cancelado` + `warehouse.ticket.cancel` (si tenía ticket) |
-
-Si RabbitMQ no está disponible, el envío igual se guarda y el fallo queda en el log como `[PUBLICACION-FALLIDA]` (la mensajería no bloquea el core).
-
-## Ejecución local
-1. RabbitMQ: `docker compose -f docker-compose.infra.yml up -d` (carpeta Desarrollo).
-2. Oracle: desde `ms-rutaexpress-shipments/` → `docker compose up -d ms-shipments-oracle` (usa el `.env` local).
-3. `mvnw.cmd spring-boot:run`
-
-## Variables de entorno
-| Variable | Por defecto |
+## Reglas de estado (caso, sección 4.3)
+| Desde | Puede pasar a |
 |---|---|
-| `SPRING_DATASOURCE_URL` | `jdbc:oracle:thin:@localhost:1522/ORCLPDB1` |
-| `SPRING_DATASOURCE_USERNAME` / `PASSWORD` | `SHIPMENTS_USER` / (ver `.env`) |
-| `RABBITMQ_ADDRESSES` | `localhost:5672` (en la nube: los 2 nodos del clúster) |
-| `RABBITMQ_USER` / `RABBITMQ_PASSWORD` | `guest` / `guest` (en la nube: `rx-shipments`) |
-| `RABBITMQ_VHOST` | `/` (en la nube: `rutaexpress`) |
-| `PORT` | `8081` |
+| CREADO | ACEPTADO, CANCELADO |
+| ACEPTADO | EN_BODEGA, CANCELADO |
+| EN_BODEGA | EN_RUTA, CANCELADO |
+| EN_RUTA | ENTREGADO |
+| ENTREGADO, CANCELADO | — (finales) |
+
+## Tests
+```
+cd ms-rutaexpress-shipments
+mvnw.cmd test
+```

@@ -1,6 +1,0 @@
-spring:
-  jpa:
-    hibernate:
-      ddl-auto: none
-    generate-ddl: false
-    database-platform: org.hibernate.dialect.OracleDialect
